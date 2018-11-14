@@ -2,10 +2,10 @@ const mongoose = require("mongoose");
 mongoose.set('useFindAndModify', false);
 
 const servers = {
-  primary: "exercise10_mongodb_credit_1:27017",
-  replica: "exercise10_replica_credit_1:27018"
-  //primary: "127.0.0.1:27017",
-  //replica: "127.0.0.1:27018"
+  //primary: "exercise10_mongodb_credit_1:27017",
+  //replica: "exercise10_replica_credit_1:27018"
+  primary: "127.0.0.1:27017",
+  replica: "127.0.0.1:27018"
 };
 const database = "cabify_bootcamp";
 

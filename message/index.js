@@ -11,8 +11,8 @@ const checkHealth = require('./src/controllers/checkHealth');
 const { checkCredit } = require("./src/queue/queue");
 
 const app = express();
-const port = process.env.PORT;
-//const port = 9010;
+//const port = process.env.PORT;
+const port = 9010;
 
 
 const validator = new Validator({ allErrors: true });

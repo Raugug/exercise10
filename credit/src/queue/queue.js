@@ -1,7 +1,7 @@
 const Bull = require('bull');
-const creditQueue = new Bull('credit-queue', 'redis://redis:6379');
-const messageQueue = new Bull('message-queue', 'redis://redis:6379');
-const rollbackQueue = new Bull('rollback-queue', 'redis://redis:6379');
+const creditQueue = new Bull('credit-queue', 'redis://localhost:6379');
+const messageQueue = new Bull('message-queue', 'redis://localhost:6379');
+const rollbackQueue = new Bull('rollback-queue', 'redis://localhost:6379');
 const updateCredit = require('../clients/updateCredit');
 
 const getCredit = require('../clients/getCredit');
