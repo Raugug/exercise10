@@ -1,0 +1,5 @@
+node_modules
+data
+.env
+message/node_modules
+credit/node_modules
