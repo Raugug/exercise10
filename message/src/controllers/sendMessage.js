@@ -1,19 +1,16 @@
 const http = require("http");
 const saveMessage = require("../clients/saveMessage");
+const circuitBraker = require('../circuitBraker/braker');
 
-const random = n => Math.floor(Math.random() * Math.floor(n));
+  module.exports = function (messgBody) {
 
-
-module.exports = function (messgBody) {
-
-	const newPromise = Promise.resolve(function () {
-		const message = messgBody.message;
+	const message = messgBody.message;
 		delete message['status'];
 		const body = JSON.stringify(message);
-
+		
 		const postOptions = {
-      		host: "messageapp",
-			//host: "localhost",
+			//host: "messageapp",
+			host: "localhost",
 			port: 3000,
 			path: "/message",
 			method: "post",
@@ -23,31 +20,62 @@ module.exports = function (messgBody) {
 				"Content-Length": Buffer.byteLength(body)
 			}
 		}
+	  
+	const asyFunction = (postOptions) => {
 
-		let postReq = http.request(postOptions);
-		return { postReq, message, body };
-	}());
+		return new Promise((resolve, reject) => {
+			let postReq = http.request(postOptions, (res) => {
+				
+				if (res.statusCode === 200) {
+					console.log({ ...message })
+					saveMessage(
+						{
+							...message,
+							status: "OK"
+						},
+						function (_result, error) {
+							if (error) {
+								console.log('Error 500: Internal error', error);
+							} else {
+								console.log('Successfully saved with status OK');
+							}
+						}
+					);
+					return resolve(message);
+				} else {
+					console.error("Error while sending message 1");
 
-	newPromise.then(data => {
-		const { postReq, message, body } = data
-		postReq.on("response", postRes => {
-			if (postRes.statusCode == 200) {
-				console.log({ ...message })
+					saveMessage(
+						{
+							...message,
+							status: "ERROR"
+						},
+						() => {
+							console.log('Error 500: Internal server error: SERVICE ERROR 1');
+						}
+					);
+					return reject(new Error("Error while sending message"))
+				}
+			});
+
+			postReq.setTimeout(1000);
+
+			postReq.on("timeout", () => {
+				console.error("Timeout Exceeded");
 				saveMessage(
 					{
 						...message,
-						status: "OK"
+						status: "TIMEOUT"
 					},
-					function (_result, error) {
-						if (error) {
-							console.log('Error 500.', error);
-						} else {
-							console.log('Successfully saved with status OK');
-						}
+					() => {
+						console.log('Error 500: Internal server error: TIMEOUT');
 					}
 				);
-			} else {
-				console.error("Error while sending message");
+				return reject(new Error('Error TIMEOUT'))
+			});
+
+			postReq.on("error", () => {
+				console.error("Error while sending message 2");
 
 				saveMessage(
 					{
@@ -55,45 +83,23 @@ module.exports = function (messgBody) {
 						status: "ERROR"
 					},
 					() => {
-						console.log('Error 500: Internal server error: SERVICE ERROR');
+						console.log('Error 500: Internal server error: SERVICE ERROR 2');
 					}
 				);
-			}
+				return reject(new Error("Error while sending message"));
+			});
+
+			postReq.write(body);
+			postReq.end();
+		})
+	}
+
+	const circuit = circuitBraker.slaveCircuit(asyFunction)
+	circuit.exec(postOptions)
+		.then(result => {
+			console.log(`result: ${result}`);
+		})
+		.catch(error => {
+			console.error(`${error}`);
 		});
-
-		postReq.setTimeout(random(6000));
-
-		postReq.on("timeout", () => {
-			console.error("Timeout Exceeded!");
-			postReq.abort();
-
-			saveMessage(
-				{
-					...message,
-					status: "TIMEOUT"
-				},
-				() => {
-					console.log('Error 500: Internal server error: TIMEOUT');
-				}
-			);
-		});
-
-		postReq.on("error", () => {
-			console.error("Error while sending message");
-
-			saveMessage(
-				{
-					...message,
-					status: "ERROR"
-				},
-				() => {
-					console.log('Error 500: Internal server error: SERVICE ERROR');
-				}
-			);
-		});
-
-		postReq.write(body);
-		postReq.end();
-	})
-		.catch(error => console.log('Error', error))
 };
