@@ -12,7 +12,6 @@ const { checkCredit } = require("./src/queue/queue");
 
 const app = express();
 const port = process.env.PORT;
-console.log("PORTENV:", port)
 //const port = 9010;
 
 
