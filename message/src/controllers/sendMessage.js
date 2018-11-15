@@ -1,7 +1,13 @@
 const http = require("http");
 const saveMessage = require("../clients/saveMessage");
 const circuitBraker = require('../circuitBraker/braker');
+const util = require("util");
 
+//Check state on snapshot stats object
+circuitBraker.on("snapshot", snapshot => {
+	console.log(`-- OPEN -- ${util.inspect(snapshot.open)}`);
+});
+  
   module.exports = function (messgBody) {
 
 	const message = messgBody.message;
@@ -21,7 +27,7 @@ const circuitBraker = require('../circuitBraker/braker');
 			}
 		}
 	  
-	const asyFunction = (postOptions) => {
+	const circuitFunction = (postOptions) => {
 
 		return new Promise((resolve, reject) => {
 			let postReq = http.request(postOptions, (res) => {
@@ -94,7 +100,7 @@ const circuitBraker = require('../circuitBraker/braker');
 		})
 	}
 
-	const circuit = circuitBraker.slaveCircuit(asyFunction)
+	const circuit = circuitBraker.slaveCircuit(circuitFunction)
 	circuit.exec(postOptions)
 		.then(result => {
 			console.log(`result: ${result}`);
