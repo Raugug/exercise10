@@ -6,6 +6,7 @@ const uuid = require('uuid');
 const sendMessage = require('../controllers/sendMessage');
 const saveMessage = require('../transactions/saveMessage');
 const circuitBraker = require('../circuitBraker/braker');
+let blockedQueue = false
 
 //const port = process.env.PORT;
 const port = 9010;
@@ -27,23 +28,41 @@ circuitBraker.on('circuitClosed', () => {
 const checkCredit = (req, res, next) => {
     const { destination, body } = req.body;
     const messageId = uuid();
-    return creditQueue
-        .add({ destination, body, messageId, status: "PENDING", location: { cost: messagePrice, name: 'Default' } })
-        .then(() => queueJobsNumber(creditQueue))
-        .then(() => res.status(200).send(`{"message status": http://localhost:${port}/message/${messageId}/status`))
-        .then(() => saveMessage({
-            ...req.body,
-            status: "PENDING",
-            messageId
-        },
-            function (_result, error) {
-                if (error) {
-                    console.log('Error 500.', error);
+   
+        return creditQueue.count()
+            .then(jobs => {
+                if (jobs >= 10) blockedQueue = true;
+                if (jobs <= 5) blockedQueue = false;
+                return blockedQueue;
+            })
+            .then(() => {
+              if (!blockedQueue){
+                creditQueue.add({ destination, body, messageId, status: "PENDING", location: { cost: messagePrice, name: 'Default' } })
+                return false;
+              } else {
+                  return true;
+              }  
+            })
+            .then((blocked) => {
+                if (blocked) {
+                    res.status(500).send(`{"message status": Service is blocked. Try again later}`)
                 } else {
-                    console.log('Successfully saved');
+                    res.status(200).send(`{"message status": http://localhost:${port}/message/${messageId}/status`)
                 }
             })
-        )
+            .then(() => saveMessage({
+                ...req.body,
+                status: "PENDING",
+                messageId
+            },
+                function (_result, error) {
+                    if (error) {
+                        console.log('Error 500.', error);
+                    } else {
+                        console.log('Successfully saved');
+                    }
+                })
+            )
 }
 
 const queueJobsNumber = (queue) => {
@@ -71,5 +90,22 @@ messageQueue.process(async (job, done) => {
         .then(() => done())
 });
 
-setInterval(() => queueJobsNumber(messageQueue), 2000)
+function isQueueBlocked() {
+    return messageQueue
+        .count()
+        .then(jobs => {
+            if(jobs <= 5) {
+                blockedQueue = false;
+            }
+            if(jobs >= 10) {
+                blockedQueue = true;
+            }
+        });
+};
+
+setInterval(() => {
+    isQueueBlocked()
+})
+
+setInterval(() => queueJobsNumber(messageQueue), 4000)
 module.exports = { checkCredit, rollbackCharge, queueJobsNumber };

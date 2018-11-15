@@ -15,8 +15,8 @@ circuitBraker.on("snapshot", snapshot => {
 		const body = JSON.stringify(message);
 		
 		const postOptions = {
-			//host: "messageapp",
-			host: "localhost",
+			host: "messageapp",
+			//host: "localhost",
 			port: 3000,
 			path: "/message",
 			method: "post",
